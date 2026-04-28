@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FSTK – Analýza položek + WvW</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f2f5;color:#1a1a1a}
+.wrap{max-width:1200px;margin:0 auto;padding:1.5rem}
+.hdr{background:linear-gradient(135deg,#1a3c5e 0%,#1D9E75 100%);border-radius:14px;padding:1.25rem 1.75rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between}
+.hdr h1{font-size:20px;font-weight:700;color:#fff}
+.hdr p{font-size:12px;color:rgba(255,255,255,.75);margin-top:3px}
+.btn{font-size:12px;padding:7px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:600;transition:all .15s}
+.btn-pdf{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.btn-pdf:hover{background:rgba(255,255,255,.25)}
+.btn-pdf:disabled{opacity:.4;cursor:default}
+.upload-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.25rem}
+.upzone{border:2px dashed #c8d0dc;border-radius:12px;padding:1.1rem;text-align:center;cursor:pointer;transition:all .15s;background:#fff}
+.upzone:hover{border-color:#1D9E75;background:#f0fdf9}
+.upzone.loaded-cur{border-color:#1D9E75;background:#f0fdf9}
+.upzone.loaded-prev{border-color:#378ADD;background:#eef5fd}
+.upzone .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.tag-cur{background:#e6f9f2;color:#0f6e56}
+.tag-prev{background:#e6f0fb;color:#185FA5}
+.upzone p{font-size:13px;color:#555;font-weight:600}
+.upzone small{font-size:11px;color:#aaa;margin-top:3px;display:block}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.25rem}
+.mc{background:#fff;border-radius:12px;padding:1rem 1.1rem;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #1D9E75}
+.mc.blue{border-left-color:#378ADD}.mc.amber{border-left-color:#BA7517}.mc.red{border-left-color:#E24B4A}.mc.purple{border-left-color:#7F77DD}
+.mc .lbl{font-size:11px;color:#888;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.mc .val{font-size:20px;font-weight:700;color:#111}
+.mc .delta{font-size:11px;margin-top:4px;font-weight:600}
+.delta-pos{color:#1D9E75}.delta-neg{color:#E24B4A}.delta-neu{color:#aaa}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.25rem}
+.ccard{background:#fff;border-radius:12px;padding:1.25rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.ccard h3{font-size:13px;font-weight:700;color:#444;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.ccard h3::before{content:'';width:4px;height:16px;background:#1D9E75;border-radius:2px;display:inline-block}
+.nav-tabs{display:flex;gap:0;margin-bottom:1.25rem;background:#fff;border-radius:10px;padding:4px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+.nav-tab{flex:1;text-align:center;padding:8px 6px;font-size:13px;font-weight:600;cursor:pointer;border-radius:7px;color:#888;transition:all .15s;border:none;background:transparent}
+.nav-tab.active{background:#1a3c5e;color:#fff}
+.section{display:none}.section.active{display:block}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-weight:700;color:#666;padding:7px 10px;border-bottom:2px solid #f0f0f0;font-size:11px;text-transform:uppercase;letter-spacing:.03em;background:#fafafa;white-space:nowrap;position:sticky;top:0;z-index:1}
+td{padding:7px 10px;color:#222;border-bottom:1px solid #f5f5f5;vertical-align:middle}
+tr:hover td{background:#f9fffe}
+.scroll-table{max-height:440px;overflow-y:auto;border-radius:8px;border:1px solid #f0f0f0}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap}
+.bg{background:#e6f9f2;color:#0f6e56}.bb{background:#e6f0fb;color:#185FA5}.ba{background:#fdf3e0;color:#854F0B}.bgr{background:#f0f0f0;color:#555}
+.new-row td{background:#f0fdf9 !important}.gone-row td{background:#fff5f5 !important}.up-row td{background:#f0f9ff !important}.down-row td{background:#fffaf0 !important}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.pill-new{background:#d1fae5;color:#065f46}.pill-gone{background:#fee2e2;color:#991b1b}
+.pill-up{background:#dbeafe;color:#1e40af}.pill-down{background:#fef3c7;color:#92400e}
+.search-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.search-row input,.search-row select{font-size:13px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:8px;outline:none;transition:border .15s}
+.search-row input:focus,.search-row select:focus{border-color:#1D9E75}
+.search-row input{flex:1;min-width:160px}
+.pct-bar{height:7px;border-radius:4px;background:#e8f5ee;overflow:hidden;width:70px;display:inline-block;vertical-align:middle}
+.pct-fill{height:100%;border-radius:4px;background:#1D9E75}
+.pct-fill-blue{background:#378ADD}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer;color:#666;background:#fff;font-weight:500;transition:all .15s}
+.tab.active{background:#1D9E75;color:#fff;border-color:#1D9E75}
+#noData{text-align:center;padding:3rem;color:#999;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:1.25rem}
+.legend{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:5px;font-size:11px;color:#666}
+.legend b{width:24px;height:3px;display:inline-block;border-radius:2px}
+.wvw-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.wvw-card{border-radius:10px;padding:.9rem 1rem;text-align:center;font-weight:700}
+.wvw-new{background:#d1fae5;color:#065f46}.wvw-gone{background:#fee2e2;color:#991b1b}
+.wvw-up{background:#dbeafe;color:#1e40af}.wvw-down{background:#fef3c7;color:#92400e}
+.wvw-card .num{font-size:26px;line-height:1}.wvw-card .desc{font-size:11px;margin-top:4px;opacity:.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hdr">
+  <div>
+    <h1>📦 FSTK – Analýza položek skladu</h1>
+    <p id="subtitle">Purchase KPI List · BikeFun International</p>
+  </div>
+  <button class="btn btn-pdf" id="btnPdf" disabled onclick="exportPDF()">⬇ Export PDF</button>
+</div>
+
+<!-- Upload row -->
+<div class="upload-row">
+  <div class="upzone" id="dzCur" onclick="document.getElementById('fileCur').click()">
+    <span class="tag tag-cur">Aktuální týden</span>
+    <p id="lblCur">📂 Nahrát aktuální soubor</p>
+    <small>Purchase_KPI_List – tento týden</small>
+  </div>
+  <div class="upzone" id="dzPrev" onclick="document.getElementById('filePrev').click()">
+    <span class="tag tag-prev">Předchozí týden</span>
+    <p id="lblPrev">📂 Nahrát předchozí soubor</p>
+    <small>Purchase_KPI_List – minulý týden (volitelné)</small>
+  </div>
+</div>
+<input type="file" id="fileCur" accept=".xlsx,.xls,.csv">
+<input type="file" id="filePrev" accept=".xlsx,.xls,.csv">
+
+<div id="noData"><p style="font-size:28px;margin-bottom:10px">⬆️</p><p>Nahrajte alespoň aktuální soubor pro zobrazení analýzy</p><p style="font-size:12px;margin-top:6px;color:#bbb">Pro WvW srovnání nahrajte oba soubory</p></div>
+
+<div id="dash" style="display:none">
+
+  <!-- Nav tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showSection('overview',this)">📊 Přehled</button>
+    <button class="nav-tab" onclick="showSection('producers',this)">🏭 Výrobci</button>
+    <button class="nav-tab" onclick="showSection('items',this)">🔩 Položky</button>
+    <button class="nav-tab" id="tabWvW" onclick="showSection('wvw',this)" style="display:none">🔄 W vs W-1</button>
+  </div>
+
+  <!-- SECTION: Overview -->
+  <div class="section active" id="sec-overview">
+    <div class="metrics" id="metRow"></div>
+    <div class="grid2">
+      <div class="ccard">
+        <h3>Top 15 výrobců dle ext.cost</h3>
+        <div style="position:relative;height:320px"><canvas id="chartProducer"></canvas></div>
+      </div>
+      <div class="ccard">
+        <h3>Top 15 kategorií (FamCode)</h3>
+        <div style="position:relative;height:320px"><canvas id="chartFam"></canvas></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="ccard">
+        <h3>Podíl výrobců – top 10</h3>
+        <div style="position:relative;height:290px"><canvas id="chartPie"></canvas></div>
+      </div>
+      <div class="ccard">
+        <h3>Počet položek vs. ext.cost – top výrobci</h3>
+        <div style="position:relative;height:290px"><canvas id="chartBubble"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: Producers -->
+  <div class="section" id="sec-producers">
+    <div class="ccard">
+      <h3>Přehled všech výrobců</h3>
+      <div class="tabs">
+        <button class="tab active" onclick="sortProd('ext',this)">Dle ext.cost</button>
+        <button class="tab" onclick="sortProd('qty',this)">Dle Qty</button>
+        <button class="tab" onclick="sortProd('count',this)">Dle počtu položek</button>
+      </div>
+      <div class="scroll-table">
+        <table>
+          <thead><tr><th>#</th><th>Výrobce</th><th>Položek</th><th>Qty celkem</th><th>Ext.Cost (Kč)</th><th>Podíl na celku</th></tr></thead>
+          <tbody id="prodTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: Items -->
+  <div class="section" id="sec-items">
+    <div class="ccard">
+      <h3>Všechny položky</h3>
+      <div class="search-row">
+        <input type="text" id="searchItem" placeholder="Hledat item kód nebo popis..." oninput="filterItems()">
+        <select id="filterProducer" onchange="filterItems()"><option value="">Všichni výrobci</option></select>
+        <select id="filterFam" onchange="filterItems()"><option value="">Všechny kategorie</option></select>
+      </div>
+      <div class="scroll-table">
+        <table>
+          <thead><tr><th>#</th><th>Item kód</th><th>Popis</th><th>Qty</th><th>Ext.Cost (Kč)</th><th>Podíl</th><th>Výrobce</th><th>FamCode</th></tr></thead>
+          <tbody id="itemTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: W vs W-1 -->
+  <div class="section" id="sec-wvw">
+    <div class="wvw-summary" id="wvwSummary"></div>
+    <div class="grid2" style="margin-bottom:1.25rem">
+      <div class="ccard">
+        <h3>Ext.cost: aktuální vs. předchozí týden – top výrobci</h3>
+        <div class="legend"><span><b style="background:#1D9E75"></b>Aktuální</span><span><b style="background:#378ADD"></b>Předchozí</span></div>
+        <div style="position:relative;height:320px"><canvas id="chartWvWProd"></canvas></div>
+      </div>
+      <div class="ccard">
+        <h3>Ext.cost: aktuální vs. předchozí – top kategorie</h3>
+        <div class="legend"><span><b style="background:#1D9E75"></b>Aktuální</span><span><b style="background:#378ADD"></b>Předchozí</span></div>
+        <div style="position:relative;height:320px"><canvas id="chartWvWFam"></canvas></div>
+      </div>
+    </div>
+
+    <!-- New items -->
+    <div class="ccard" style="margin-bottom:1.25rem">
+      <h3 style="color:#065f46">🆕 Nové položky (přibyly tento týden)</h3>
+      <div class="scroll-table" style="max-height:280px">
+        <table><thead><tr><th>Item kód</th><th>Popis</th><th>Qty</th><th>Ext.Cost (Kč)</th><th>Výrobce</th><th>FamCode</th></tr></thead>
+        <tbody id="newTbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Gone items -->
+    <div class="ccard" style="margin-bottom:1.25rem">
+      <h3 style="color:#991b1b">❌ Chybějící položky (zmizely z minulého týdne)</h3>
+      <div class="scroll-table" style="max-height:280px">
+        <table><thead><tr><th>Item kód</th><th>Popis</th><th>Qty (minulý)</th><th>Ext.Cost (Kč, minulý)</th><th>Výrobce</th><th>FamCode</th></tr></thead>
+        <tbody id="goneTbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Changed items -->
+    <div class="ccard" style="margin-bottom:1.25rem">
+      <h3>📈 Největší změny ext.cost (existující položky)</h3>
+      <div class="tabs">
+        <button class="tab active" onclick="showChanges('all',this)">Vše</button>
+        <button class="tab" onclick="showChanges('up',this)">⬆ Nárůst</button>
+        <button class="tab" onclick="showChanges('down',this)">⬇ Pokles</button>
+      </div>
+      <div class="scroll-table" style="max-height:360px">
+        <table><thead><tr><th>Item kód</th><th>Popis</th><th>Ext.Cost aktuální</th><th>Ext.Cost předchozí</th><th>Rozdíl (Kč)</th><th>Změna %</th><th>Výrobce</th></tr></thead>
+        <tbody id="changedTbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /dash -->
+</div><!-- /wrap -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+let curItems=[], prevItems=[], charts={};
+let allChanges=[];
+const COLORS=['#1D9E75','#378ADD','#E24B4A','#BA7517','#7F77DD','#D4537E','#0F6E56','#185FA5','#993C1D','#533AB7','#639922','#636363','#CC8800','#AA3366','#227788'];
+
+// Upload handlers
+function setupDrop(dzId, inputId, which){
+  const dz=document.getElementById(dzId);
+  const inp=document.getElementById(inputId);
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor=which==='cur'?'#1D9E75':'#378ADD'});
+  dz.addEventListener('dragleave',()=>{dz.style.borderColor='#c8d0dc'});
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.style.borderColor='#c8d0dc';if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0],which)});
+  inp.addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0],which)});
+}
+setupDrop('dzCur','fileCur','cur');
+setupDrop('dzPrev','filePrev','prev');
+
+function loadFile(file, which){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      const items=parseRows(rows);
+      if(which==='cur'){
+        curItems=items;
+        const dz=document.getElementById('dzCur');
+        dz.classList.add('loaded-cur');
+        document.getElementById('lblCur').textContent='✅ '+file.name;
+      } else {
+        prevItems=items;
+        const dz=document.getElementById('dzPrev');
+        dz.classList.add('loaded-prev');
+        document.getElementById('lblPrev').textContent='✅ '+file.name;
+      }
+      if(curItems.length>0){
+        document.getElementById('noData').style.display='none';
+        document.getElementById('dash').style.display='block';
+        document.getElementById('btnPdf').disabled=false;
+        if(prevItems.length>0) document.getElementById('tabWvW').style.display='';
+        renderAll();
+      }
+    }catch(err){alert('Chyba: '+err.message);}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function parseRows(rows){
+  let hdrIdx=0;
+  for(let i=0;i<Math.min(10,rows.length);i++){
+    if(rows[i]&&rows[i].some(c=>c&&String(c).toLowerCase().includes('item'))){hdrIdx=i;break;}
+  }
+  const hdrs=rows[hdrIdx].map(h=>h?String(h).replace(/\n/g,' ').trim():'');
+  const ci=(names)=>{for(const n of names){const i=hdrs.findIndex(h=>h.toLowerCase().includes(n.toLowerCase()));if(i>=0)return i;}return -1;};
+  const iItem=ci(['Item']),iDesc=ci(['Description']),iQty=ci(['Qty','Quantity']);
+  const iExt=ci(['ExtCost','Ext Cost','ext.cost']),iProd=ci(['Producer']);
+  const iFam=ci(['FamCode']),iUnit=ci(['Unit Cost','UnitCost']);
+  const items=[];
+  for(let i=hdrIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||!r[iItem]) continue;
+    const item=String(r[iItem]).trim();
+    if(item==='Total'||item==='') continue;
+    items.push({
+      item, desc:iDesc>=0&&r[iDesc]?String(r[iDesc]).trim():'',
+      qty:parseFloat(r[iQty])||0, ext:parseFloat(r[iExt])||0,
+      unit:iUnit>=0?parseFloat(r[iUnit])||0:0,
+      producer:iProd>=0&&r[iProd]?String(r[iProd]).trim():'Neznámý',
+      famcode:iFam>=0&&r[iFam]?String(r[iFam]).trim():'Ostatní',
+    });
+  }
+  return items;
+}
+
+function showSection(name,el){
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+}
+
+function groupBy(items,key){
+  const m={};
+  items.forEach(i=>{const k=i[key];if(!m[k])m[k]={key:k,ext:0,qty:0,count:0};m[k].ext+=i.ext;m[k].qty+=i.qty;m[k].count++;});
+  return Object.values(m).sort((a,b)=>b.ext-a.ext);
+}
+
+function fmt(n){if(n>=1e6)return (n/1e6).toFixed(1)+' M';if(n>=1e3)return Math.round(n/1e3).toLocaleString('cs-CZ')+'K';return Math.round(n).toLocaleString('cs-CZ');}
+function fmtFull(n){return Math.round(n).toLocaleString('cs-CZ');}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function renderAll(){
+  const items=curItems;
+  const totalExt=items.reduce((s,i)=>s+i.ext,0);
+  const totalQty=items.reduce((s,i)=>s+i.qty,0);
+  const producers=groupBy(items,'producer');
+  const famcodes=groupBy(items,'famcode');
+
+  // Subtitle
+  const now=new Date();
+  document.getElementById('subtitle').textContent=`Purchase KPI · ${now.toLocaleDateString('cs-CZ')} · ${items.length.toLocaleString('cs-CZ')} položek${prevItems.length>0?' · WvW aktivní':''}`;
+
+  // Metrics with delta vs prev
+  const prevTotalExt=prevItems.reduce((s,i)=>s+i.ext,0);
+  const prevTotalQty=prevItems.reduce((s,i)=>s+i.qty,0);
+  const dExt=prevTotalExt>0?totalExt-prevTotalExt:null;
+  const dQty=prevTotalQty>0?totalQty-prevTotalQty:null;
+  const dItems=prevItems.length>0?items.length-prevItems.length:null;
+
+  function deltaTxt(d,total){
+    if(d===null) return '<span class="delta-neu">—</span>';
+    const pct=(d/Math.abs(total-d)*100).toFixed(1);
+    const cls=d<0?'delta-pos':d>0?'delta-neg':'delta-neu';
+    return `<span class="${cls}">${d>=0?'+':''}${fmt(d)} Kč (${d>=0?'+':''}${pct}%)</span>`;
+  }
+  function deltaItems(d){
+    if(d===null) return '<span class="delta-neu">—</span>';
+    return `<span class="${d>0?'delta-neg':d<0?'delta-pos':'delta-neu'}">${d>=0?'+':''}${d} položek</span>`;
+  }
+
+  document.getElementById('metRow').innerHTML=`
+    <div class="mc"><div class="lbl">Celkový ext.cost</div><div class="val">${fmt(totalExt)}</div><div class="delta">${deltaTxt(dExt,totalExt)}</div></div>
+    <div class="mc blue"><div class="lbl">Počet položek</div><div class="val">${items.length.toLocaleString('cs-CZ')}</div><div class="delta">${deltaItems(dItems)}</div></div>
+    <div class="mc amber"><div class="lbl">Celkové Qty</div><div class="val">${fmt(totalQty)}</div><div class="delta">${dQty!==null?'<span class="'+(dQty<0?'delta-pos':dQty>0?'delta-neg':'delta-neu')+'">'+(dQty>=0?'+':'')+fmt(dQty)+'</span>':'<span class="delta-neu">—</span>'}</div></div>
+    <div class="mc purple"><div class="lbl">Výrobců</div><div class="val">${producers.length}</div><div class="delta"><span class="delta-neu">${famcodes.length} kategorií</span></div></div>
+    <div class="mc red"><div class="lbl">Průměrný ext.cost</div><div class="val">${fmt(totalExt/items.length)}</div><div class="delta"><span class="delta-neu">na položku</span></div></div>
+  `;
+
+  // Producer bar
+  const top15p=producers.slice(0,15);
+  destroyChart('chartProducer');
+  charts['chartProducer']=new Chart(document.getElementById('chartProducer'),{
+    type:'bar',data:{labels:top15p.map(p=>p.key.length>20?p.key.slice(0,18)+'…':p.key),
+      datasets:[{data:top15p.map(p=>Math.round(p.ext/1000)),backgroundColor:top15p.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.x).toLocaleString('cs-CZ')+'K Kč'}}},
+      scales:{x:{ticks:{callback:v=>v.toLocaleString('cs-CZ')+'K'},grid:{color:'rgba(0,0,0,0.04)'}},y:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+
+  // FamCode bar
+  const top15f=famcodes.slice(0,15);
+  destroyChart('chartFam');
+  charts['chartFam']=new Chart(document.getElementById('chartFam'),{
+    type:'bar',data:{labels:top15f.map(f=>f.key.replace('N ','')),
+      datasets:[{data:top15f.map(f=>Math.round(f.ext/1000)),backgroundColor:top15f.map((_,i)=>COLORS[(i+4)%COLORS.length]),borderWidth:0,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.parsed.x).toLocaleString('cs-CZ')+'K Kč'}}},
+      scales:{x:{ticks:{callback:v=>v.toLocaleString('cs-CZ')+'K'},grid:{color:'rgba(0,0,0,0.04)'}},y:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+
+  // Pie
+  const top10p=producers.slice(0,10);
+  const otherExt=producers.slice(10).reduce((s,p)=>s+p.ext,0);
+  destroyChart('chartPie');
+  charts['chartPie']=new Chart(document.getElementById('chartPie'),{
+    type:'doughnut',
+    data:{labels:[...top10p.map(p=>p.key),'Ostatní'],datasets:[{data:[...top10p.map(p=>Math.round(p.ext)),Math.round(otherExt)],backgroundColor:[...COLORS.slice(0,10),'#ccc'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,padding:8}},tooltip:{callbacks:{label:c=>c.label+': '+fmtFull(c.parsed)+'K'}}}}
+  });
+
+  // Bubble
+  destroyChart('chartBubble');
+  charts['chartBubble']=new Chart(document.getElementById('chartBubble'),{
+    type:'bubble',
+    data:{datasets:producers.slice(0,12).map((p,i)=>({label:p.key,data:[{x:Math.round(p.qty),y:Math.round(p.ext/1000),r:Math.max(5,Math.min(28,Math.sqrt(p.count)*2.5))}],backgroundColor:COLORS[i%COLORS.length]+'aa',borderColor:COLORS[i%COLORS.length],borderWidth:1.5}))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: Qty ${c.parsed.x.toLocaleString('cs-CZ')} · ${c.parsed.y.toLocaleString('cs-CZ')}K Kč`}}},
+      scales:{x:{title:{display:true,text:'Qty (ks)',font:{size:11}},ticks:{callback:v=>v.toLocaleString('cs-CZ')},grid:{color:'rgba(0,0,0,0.04)'}},y:{title:{display:true,text:'Ext.Cost (tis. Kč)',font:{size:11}},ticks:{callback:v=>v.toLocaleString('cs-CZ')+'K'},grid:{color:'rgba(0,0,0,0.04)'}}}}
+  });
+
+  // Items table
+  populateFilters(items);
+  window._allItemsSorted=[...items].sort((a,b)=>b.ext-a.ext);
+  renderItemTable(window._allItemsSorted, totalExt);
+
+  // Producer table
+  window._producers=producers;
+  window._totalExt=totalExt;
+  renderProdTable(producers,totalExt);
+
+  // WvW if available
+  if(prevItems.length>0) renderWvW();
+}
+
+function populateFilters(items){
+  const prods=[...new Set(items.map(i=>i.producer))].sort();
+  const fams=[...new Set(items.map(i=>i.famcode))].sort();
+  document.getElementById('filterProducer').innerHTML='<option value="">Všichni výrobci</option>'+prods.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('filterFam').innerHTML='<option value="">Všechny kategorie</option>'+fams.map(f=>`<option>${f}</option>`).join('');
+}
+
+function renderItemTable(items, totalExt){
+  const maxExt=items.length>0?Math.max(...items.slice(0,1).map(i=>i.ext)):1;
+  document.getElementById('itemTbody').innerHTML=items.slice(0,300).map((it,i)=>{
+    const pct=(it.ext/totalExt*100).toFixed(2);
+    const bw=Math.round(it.ext/(items[0]?.ext||1)*100);
+    return `<tr><td style="color:#aaa;font-size:11px">${i+1}</td>
+      <td style="font-family:monospace;font-size:11px;font-weight:700;color:#185FA5">${it.item}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${it.desc}">${it.desc}</td>
+      <td style="text-align:right">${fmtFull(it.qty)}</td>
+      <td style="text-align:right;font-weight:700">${fmtFull(it.ext)}</td>
+      <td><div style="display:flex;align-items:center;gap:5px"><div class="pct-bar"><div class="pct-fill" style="width:${bw}%"></div></div><span style="font-size:10px;color:#888">${pct}%</span></div></td>
+      <td><span class="badge bg">${it.producer.length>18?it.producer.slice(0,17)+'…':it.producer}</span></td>
+      <td><span class="badge bb">${it.famcode.replace('N ','')}</span></td></tr>`;
+  }).join('');
+}
+
+function filterItems(){
+  const q=document.getElementById('searchItem').value.toLowerCase();
+  const prod=document.getElementById('filterProducer').value;
+  const fam=document.getElementById('filterFam').value;
+  let f=window._allItemsSorted||[];
+  if(q) f=f.filter(i=>i.item.toLowerCase().includes(q)||i.desc.toLowerCase().includes(q));
+  if(prod) f=f.filter(i=>i.producer===prod);
+  if(fam) f=f.filter(i=>i.famcode===fam);
+  renderItemTable(f, window._totalExt||1);
+}
+
+function renderProdTable(producers, totalExt){
+  document.getElementById('prodTbody').innerHTML=producers.map((p,i)=>{
+    const pct=(p.ext/totalExt*100).toFixed(1);
+    const bw=Math.round(p.ext/producers[0].ext*100);
+    return `<tr><td style="color:#aaa;font-size:11px">${i+1}</td>
+      <td style="font-weight:700">${p.key}</td>
+      <td style="text-align:right">${p.count.toLocaleString('cs-CZ')}</td>
+      <td style="text-align:right">${fmtFull(p.qty)}</td>
+      <td style="text-align:right;font-weight:700;color:#1a3c5e">${fmtFull(p.ext)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="pct-bar" style="width:80px"><div class="pct-fill" style="width:${bw}%"></div></div><span style="font-size:11px;font-weight:700;color:#0f6e56">${pct}%</span></div></td></tr>`;
+  }).join('');
+}
+
+function sortProd(key,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const sorted=[...window._producers].sort((a,b)=>b[key]-a[key]);
+  renderProdTable(sorted, window._totalExt||1);
+}
+
+function renderWvW(){
+  const cur=curItems, prev=prevItems;
+  const curMap=Object.fromEntries(cur.map(i=>[i.item,i]));
+  const prevMap=Object.fromEntries(prev.map(i=>[i.item,i]));
+
+  const newItems=cur.filter(i=>!prevMap[i.item]);
+  const goneItems=prev.filter(i=>!curMap[i.item]);
+  const changed=cur.filter(i=>prevMap[i.item]&&Math.abs(i.ext-prevMap[i.item].ext)>0.01)
+    .map(i=>({...i,prevExt:prevMap[i.item].ext,prevQty:prevMap[i.item].qty,diff:i.ext-prevMap[i.item].ext,pct:(i.ext-prevMap[i.item].ext)/Math.abs(prevMap[i.item].ext)*100}))
+    .sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+  allChanges=changed;
+
+  const newExt=newItems.reduce((s,i)=>s+i.ext,0);
+  const goneExt=goneItems.reduce((s,i)=>s+i.ext,0);
+  const upCount=changed.filter(i=>i.diff>0).length;
+  const downCount=changed.filter(i=>i.diff<0).length;
+
+  // Summary cards
+  document.getElementById('wvwSummary').innerHTML=`
+    <div class="wvw-card wvw-new"><div class="num">${newItems.length}</div><div class="desc">Nových položek<br>+${fmt(newExt)} Kč</div></div>
+    <div class="wvw-card wvw-gone"><div class="num">${goneItems.length}</div><div class="desc">Zmizelo položek<br>-${fmt(goneExt)} Kč</div></div>
+    <div class="wvw-card wvw-up"><div class="num">${upCount}</div><div class="desc">Položek s nárůstem ext.cost</div></div>
+    <div class="wvw-card wvw-down"><div class="num">${downCount}</div><div class="desc">Položek s poklesem ext.cost</div></div>
+  `;
+
+  // WvW Producer chart
+  const curProd=groupBy(cur,'producer');
+  const prevProd=groupBy(prev,'producer');
+  const top12labels=curProd.slice(0,12).map(p=>p.key.length>16?p.key.slice(0,14)+'…':p.key);
+  const curVals=curProd.slice(0,12).map(p=>Math.round(p.ext/1000));
+  const prevVals=curProd.slice(0,12).map(p=>{const f=prevProd.find(x=>x.key===p.key);return f?Math.round(f.ext/1000):0;});
+  destroyChart('chartWvWProd');
+  charts['chartWvWProd']=new Chart(document.getElementById('chartWvWProd'),{
+    type:'bar',
+    data:{labels:top12labels,datasets:[
+      {label:'Aktuální',data:curVals,backgroundColor:'#1D9E75cc',borderRadius:3,borderWidth:0},
+      {label:'Předchozí',data:prevVals,backgroundColor:'#378ADDcc',borderRadius:3,borderWidth:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:35},grid:{display:false}},y:{ticks:{callback:v=>v.toLocaleString('cs-CZ')+'K'},grid:{color:'rgba(0,0,0,0.04)'}}}}
+  });
+
+  // WvW FamCode chart
+  const curFam=groupBy(cur,'famcode');
+  const prevFam=groupBy(prev,'famcode');
+  const top10fl=curFam.slice(0,10).map(f=>f.key.replace('N ',''));
+  const curFv=curFam.slice(0,10).map(f=>Math.round(f.ext/1000));
+  const prevFv=curFam.slice(0,10).map(f=>{const x=prevFam.find(p=>p.key===f.key);return x?Math.round(x.ext/1000):0;});
+  destroyChart('chartWvWFam');
+  charts['chartWvWFam']=new Chart(document.getElementById('chartWvWFam'),{
+    type:'bar',
+    data:{labels:top10fl,datasets:[
+      {label:'Aktuální',data:curFv,backgroundColor:'#1D9E75cc',borderRadius:3,borderWidth:0},
+      {label:'Předchozí',data:prevFv,backgroundColor:'#378ADDcc',borderRadius:3,borderWidth:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:35},grid:{display:false}},y:{ticks:{callback:v=>v.toLocaleString('cs-CZ')+'K'},grid:{color:'rgba(0,0,0,0.04)'}}}}
+  });
+
+  // New items table
+  document.getElementById('newTbody').innerHTML=newItems.sort((a,b)=>b.ext-a.ext).map(it=>`
+    <tr class="new-row"><td style="font-family:monospace;font-size:11px;font-weight:700;color:#065f46">${it.item}</td>
+    <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc}</td>
+    <td style="text-align:right">${fmtFull(it.qty)}</td>
+    <td style="text-align:right;font-weight:700">${fmtFull(it.ext)}</td>
+    <td><span class="badge bg">${it.producer}</span></td>
+    <td><span class="badge bb">${it.famcode.replace('N ','')}</span></td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:1rem">Žádné nové položky</td></tr>';
+
+  // Gone items table
+  document.getElementById('goneTbody').innerHTML=goneItems.sort((a,b)=>b.ext-a.ext).map(it=>`
+    <tr class="gone-row"><td style="font-family:monospace;font-size:11px;font-weight:700;color:#991b1b">${it.item}</td>
+    <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc}</td>
+    <td style="text-align:right">${fmtFull(it.qty)}</td>
+    <td style="text-align:right;font-weight:700">${fmtFull(it.ext)}</td>
+    <td><span class="badge bg">${it.producer}</span></td>
+    <td><span class="badge bb">${it.famcode.replace('N ','')}</span></td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:1rem">Žádné zmizené položky</td></tr>';
+
+  showChanges('all',document.querySelector('#sec-wvw .tab'));
+}
+
+function showChanges(filter, el){
+  document.querySelectorAll('#sec-wvw .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  let data=allChanges;
+  if(filter==='up') data=data.filter(i=>i.diff>0);
+  if(filter==='down') data=data.filter(i=>i.diff<0);
+  document.getElementById('changedTbody').innerHTML=data.slice(0,100).map(it=>{
+    const cls=it.diff>0?'up-row':'down-row';
+    const pill=it.diff>0?'pill-up':'pill-down';
+    return `<tr class="${cls}">
+      <td style="font-family:monospace;font-size:11px;font-weight:700;color:#185FA5">${it.item}</td>
+      <td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc}</td>
+      <td style="text-align:right;font-weight:700">${fmtFull(it.ext)}</td>
+      <td style="text-align:right;color:#888">${fmtFull(it.prevExt)}</td>
+      <td style="text-align:right;font-weight:700" class="${it.diff>0?'delta-neg':'delta-pos'}">${it.diff>=0?'+':''}${fmtFull(it.diff)}</td>
+      <td><span class="pill ${pill}">${it.pct>=0?'+':''}${it.pct.toFixed(1)}%</span></td>
+      <td><span class="badge bg">${it.producer.length>16?it.producer.slice(0,15)+'…':it.producer}</span></td></tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:1rem">Žádné změny</td></tr>';
+}
+
+async function exportPDF(){
+  const btn=document.getElementById('btnPdf');
+  btn.textContent='⏳ Generuji...';btn.disabled=true;
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210,M=14,cW=W-2*M;
+    doc.setFillColor(26,60,94);doc.rect(0,0,210,20,'F');
+    doc.setFillColor(29,158,117);doc.rect(0,16,210,4,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont('helvetica','bold');
+    doc.text('FSTK – Analýza položek skladu',M,12);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');
+    doc.text('BikeFun International  ·  '+new Date().toLocaleDateString('cs-CZ')+'  ·  '+curItems.length.toLocaleString('cs-CZ')+' položek',W-M,12,{align:'right'});
+    let y=28;
+
+    const totalExt=curItems.reduce((s,i)=>s+i.ext,0);
+    const totalQty=curItems.reduce((s,i)=>s+i.qty,0);
+    const producers=groupBy(curItems,'producer');
+    const ms=[{l:'Celkový ext.cost',v:fmt(totalExt)+' Kč'},{l:'Počet položek',v:curItems.length.toLocaleString('cs-CZ')},{l:'Celkové Qty',v:fmt(totalQty)},{l:'Počet výrobců',v:String(producers.length)}];
+    const bW=(cW-9)/4;
+    ms.forEach((m,i)=>{
+      const x=M+i*(bW+3);
+      doc.setFillColor(i===0?229:i===1?230:i===2?253:240,i===0?249:i===1?240:i===2?243:236,i===0?242:i===1?251:i===2?224:248);
+      doc.roundedRect(x,y,bW,14,2,2,'F');
+      doc.setTextColor(120,120,120);doc.setFontSize(7);doc.setFont('helvetica','normal');doc.text(m.l,x+3,y+5);
+      doc.setTextColor(20,20,20);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(m.v,x+3,y+11);
+    });
+    y+=20;
+
+    // Charts from overview section
+    const cards=document.querySelectorAll('#sec-overview .ccard');
+    for(let ci=0;ci<cards.length;ci++){
+      const el=cards[ci];
+      const cv=await html2canvas(el,{scale:1.4,backgroundColor:'#ffffff',logging:false});
+      const img=cv.toDataURL('image/jpeg',0.88);
+      const iH=Math.min(cW*(cv.height/cv.width),80);
+      if(y+iH+12>285){doc.addPage();y=15;}
+      doc.setFillColor(29,158,117);doc.rect(M,y,3,8,'F');
+      doc.setTextColor(30,30,30);doc.setFontSize(9);doc.setFont('helvetica','bold');
+      doc.text(el.querySelector('h3')?.textContent?.replace(/^./,'')||'',M+6,y+5.5);
+      y+=11;doc.addImage(img,'JPEG',M,y,cW,iH);y+=iH+10;
+    }
+
+    // WvW section if available
+    if(prevItems.length>0){
+      doc.addPage();y=15;
+      doc.setFillColor(26,60,94);doc.rect(M,y,3,8,'F');
+      doc.setTextColor(20,20,20);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text('W vs W-1 Srovnání',M+6,y+5.5);y+=12;
+      const wvwCards=document.querySelectorAll('#sec-wvw .ccard');
+      for(let ci=0;ci<Math.min(2,wvwCards.length);ci++){
+        const cv=await html2canvas(wvwCards[ci],{scale:1.3,backgroundColor:'#ffffff',logging:false});
+        const img=cv.toDataURL('image/jpeg',0.85);
+        const iH=Math.min(cW*(cv.height/cv.width),80);
+        if(y+iH+12>285){doc.addPage();y=15;}
+        doc.addImage(img,'JPEG',M,y,cW,iH);y+=iH+10;
+      }
+    }
+
+    // Top items table
+    doc.addPage();y=15;
+    doc.setFillColor(26,60,94);doc.rect(M,y,3,8,'F');
+    doc.setTextColor(20,20,20);doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text('Top 25 položek dle ext.cost',M+6,y+5.5);y+=12;
+    const th2=['#','Item kód','Popis','Qty','Ext.Cost','Výrobce'];
+    const tw=[8,36,60,18,28,36];
+    doc.setFillColor(26,60,94);doc.rect(M,y-3,cW,7,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    let x=M+2;th2.forEach((h,i)=>{doc.text(h,x,y+1.5);x+=tw[i];});y+=6;
+    [...curItems].sort((a,b)=>b.ext-a.ext).slice(0,25).forEach((it,ri)=>{
+      if(y>282){doc.addPage();y=15;}
+      doc.setFillColor(ri%2===0?247:255,ri%2===0?250:255,ri%2===0?252:255);doc.rect(M,y-3,cW,5.5,'F');
+      doc.setTextColor(20,20,20);doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+      const row=[ri+1,it.item,it.desc.slice(0,35),fmtFull(it.qty),fmtFull(it.ext),it.producer.slice(0,20)];
+      x=M+2;row.forEach((c,ci)=>{doc.text(String(c),x,y+1);x+=tw[ci];});y+=5.5;
+    });
+
+    doc.setFontSize(7);doc.setTextColor(180,180,180);
+    doc.text('FSTK Dashboard · BikeFun International · '+new Date().toLocaleDateString('cs-CZ'),W/2,292,{align:'center'});
+    doc.save('FSTK_Report_'+new Date().toISOString().slice(0,10)+'.pdf');
+  }catch(err){alert('PDF chyba: '+err.message);}
+  finally{btn.textContent='⬇ Export PDF';btn.disabled=false;}
+}
+</script>
+</body>
+</html>
